@@ -1,5 +1,5 @@
 """
-Program for putting together a RIP packet
+Program for putting together a RIP message
 Author: Logan Lee
 Student ID: 26029766
 """
@@ -10,8 +10,15 @@ VERSION = 0x02  # Version number is always 2 as stated in 4.2 of the assignment 
 
 
 class RIPPacket:
+    """
+    Python class that represents a RIP message
+    """
 
     def __init__(self, src_id):
+        """
+        Initialises the common header of the RIP message as a byte array
+        :param src_id: the source id of the router the packet is being sent from
+        """
         if self.is_router_id_valid(src_id):
             self.src_id = src_id
             self.packet = bytearray(4)
@@ -24,6 +31,13 @@ class RIPPacket:
             raise ValueError
 
     def rip_packet_entry(self, port_no, next_hop, metric):
+        """
+        Appends a RIP packet entry onto the common header of the RIP packet and returns it
+        :param port_no: port number of input port
+        :param next_hop: the router id of the next hop router in the path
+        :param metric: the cost metric of the path to the destination
+        :return: the RIP packet (byte array) including the common header and packet entry(ies)
+        """
         rip_entry = bytearray(20)
 
         rip_entry[0] = port_no >> 8  # AFI = port number
@@ -55,9 +69,19 @@ class RIPPacket:
         return self.packet
 
     def is_router_id_valid(self, router_id):
+        """
+        Checks to see if the router id valid
+        :param router_id: an integer representing the router id
+        :return: boolean, true if id is valid, false if not
+        """
         return 0 < router_id < 64001
 
     def is_metric_valid(self, metric):
+        """
+        Checks to see if the given cost metric is a valid value
+        :param metric: integer, the cost metric of a RIP path
+        :return: boolean, true if value is valid, false if not
+        """
         return 0 < metric < 17
 
 
