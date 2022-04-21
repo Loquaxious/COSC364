@@ -61,20 +61,20 @@ class RIPPacket:
         return 0 < metric < 17
 
 
-def main():
-    # Testing
-    test = RIPPacket(1)
-    print(test.packet)
-    print(RIPPacket(64000).packet)
-    # print(RIPPacket(0))
-    # print(RIPPacket(64001))
-
-    print(test.rip_packet_entry(3000, 0, 0))
-    print(test.rip_packet_entry(3000, 1, 17))
-    print(test.rip_packet_entry(3000, 64001, 1))
-    print(test.rip_packet_entry(3000, 1, 1))
-    print(test.rip_packet_entry(3000, 64000, 16))
-
-
-if __name__ == '__main__':
-    main()
+# def main():
+#     # Testing
+#     test = RIPPacket(1)
+#     print(test.packet)
+#     print(RIPPacket(64000).packet)
+#     # print(RIPPacket(0))
+#     # print(RIPPacket(64001))
+#
+#     print(test.rip_packet_entry(3000, 0, 0))
+#     print(test.rip_packet_entry(3000, 1, 17))
+#     print(test.rip_packet_entry(3000, 64001, 1))
+#     print(test.rip_packet_entry(3000, 1, 1))
+#     print(test.rip_packet_entry(3000, 64000, 16))
+#
+#
+# if __name__ == '__main__':
+#     main()
