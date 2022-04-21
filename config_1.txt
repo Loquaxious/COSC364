@@ -1,7 +1,8 @@
 router-id, 1
+# This is how you write a comment
                  
 # hajshdkjahsd
      #hjashk
 input-ports, 1102, 1103, 1104, 1105, 1106, 1107, 11088      #jkahsjk
 
-output-ports, 2001-1-2, 6001-5-6, 7001-8-7
+outputs, 2001-1-2, 6001-5-6, 7001-8-7

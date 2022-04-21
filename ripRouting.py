@@ -17,8 +17,8 @@ def main(filename):
     
     try:
         ROUTER_ID, INPUT_PORTS, OUTPUT_PORTS = configParser.read_config_file(filename)
-    except Exception as e:
-        print(e)
+    except Exception as exception:
+        print(exception)
         quit()
     print(ROUTER_ID)
     print(INPUT_PORTS)
