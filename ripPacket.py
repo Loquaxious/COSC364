@@ -27,7 +27,7 @@ class RIPPacket:
             self.packet[2] = src_id >> 8
             self.packet[3] = (src_id & 0x00FF)
         else:
-            print("Failed to creat RIP packet as source router id is invalid")
+            print("Failed to create RIP packet as source router id is invalid")
             raise ValueError
 
     def rip_packet_entry(self, port_no, next_hop, metric):

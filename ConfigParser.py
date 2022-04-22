@@ -1,9 +1,10 @@
 import os
+from OutputLinks import *
 
 
 class ConfigParser:
     INPUT_PORTS = []
-    OUTPUTS = {}
+    OUTPUT_LINKS = OutputLinks()
     ROUTER_ID = None
     def parse_config_file(self, config):
         """
@@ -124,8 +125,8 @@ class ConfigParser:
                     raise Exception(f"Error: Invalid format on line {outputs_line}. Port number {port_index} must be an integer between 1024 and 64000.")
 
                 else:
-                    if port in self.OUTPUTS: # If port number is duplicated
-                        repeated_port_index = list(self.OUTPUTS.keys()).index(port) + 1
+                    if port in self.OUTPUT_LINKS.get_ports_list(): # If port number is duplicated
+                        repeated_port_index = list(self.OUTPUT_LINKS.get_ports_list()).index(port) + 1
                         raise Exception(f"Error: Invalid format on line {outputs_line}. Port numbers {repeated_port_index} and {port_index} are duplicates." )
 
                     elif port in self.INPUT_PORTS: # If an output port is also listed as an input port
@@ -133,7 +134,7 @@ class ConfigParser:
                         raise Exception(f"Error: Invalid format on line {outputs_line}. Output port {port_index} and input port {input_port_index} are duplicates." )
 
                     else:
-                        self.OUTPUTS[port] = router_id
+                        self.OUTPUT_LINKS.add_link(port, metric, router_id)
         else:
             raise Exception(f"Error: Invalid format on line {outputs_line}. Correct format is 'input-ports, {{integer between 1024 and 64000}}-{{link metric}}-{{router id}}'")
 
@@ -164,4 +165,4 @@ class ConfigParser:
         self.check_config_input_ports(input_ports_data, input_ports_line)
         self.check_config_outputs(outputs_data, outputs_line)
 
-        return (self.ROUTER_ID, self.INPUT_PORTS, self.OUTPUTS)
+        return (self.ROUTER_ID, self.INPUT_PORTS, self.OUTPUT_LINKS)

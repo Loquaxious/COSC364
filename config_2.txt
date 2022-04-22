@@ -1,8 +1,7 @@
-router-id, 1
+router-id, 2
 # This is how you write a comment
                  
 # hajshdkjahsd
      #hjashk
-input-ports, 5002
-
-outputs, 5900-1-2
+input-ports, 5900
+outputs, 5002-1-1

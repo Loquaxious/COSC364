@@ -1,6 +1,8 @@
+from os import read
 import select
 import socket
 import sys
+from time import sleep
 
 from ripPacket import *
 from ConfigParser import *
@@ -20,7 +22,7 @@ class Daemon:
         config = ConfigParser().read_config_file(config_filename)
         self.router_id = config[0]
         self.input_ports = config[1]
-        self.outputs = config[2]
+        self.output_links = config[2]
         self.input_sockets = self.create_input_sockets()
         self.blocking_time = 1 # only block for 1 second each loop
 
@@ -41,11 +43,13 @@ class Daemon:
         Sends neighbouring routers message with just the RIP packet common header, so they add this router to routing
         tables
         """
-        init_packet = RIPPacket(self.router_id)
-        send_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        for port in self.outputs:
-            send_socket.connect((LOCAL_HOST, port))
-            send_socket.sendall(init_packet)
+        init_packet = RIPPacket(self.router_id).packet
+        send_socket = self.input_sockets[0]
+        for port in self.output_links.get_ports_list():
+            try:
+                send_socket.sendto(init_packet, (LOCAL_HOST, port))
+            except:
+                pass
 
     def close_sockets(self):
         """
@@ -59,8 +63,7 @@ class Daemon:
         """
             Checks all incoming ports for packets ready to be read. If there are packets, it reads them and interprets the data.
         """
-
-        readable_sockets, _, _ = select.select(self.input_ports, [], [], self.blocking_time)
+        readable_sockets, _, _ = select.select(self.input_sockets, [], [], self.blocking_time)
 
         for socket in readable_sockets:
             data, _ = socket.recvfrom(4096)
@@ -72,8 +75,30 @@ class Daemon:
             this router (packet came from a router in its output ports), it updates its forwarding table with the new data
             :param data: bytecode array, contains a RIP packet
         """
-        print(data)
-        print(data.decode("UTF-8"))
+
+        rip_header = data[:4]
+        command = rip_header[0]
+        version = rip_header[1]
+        router_id = int.from_bytes(rip_header[2:], "big")
+        print(command, version, router_id)
+
+        if command != 2:
+            print("Error: Incoming packet command is invalid")
+            return
+        if version != 2:
+            print("Error: Incoming packet version is invalid")
+            return
+        if not (0 < router_id < 64001):
+            print("Error: Incoming packet router id is invalid")
+            return
+        if not self.output_links.check_router_in_outputs(router_id):
+            print("Discarding packet: Router id not in outputs")
+            return
+
+        print("Valid Packet")
+        
+        
+
 
 
 def main(config_filename):
@@ -84,7 +109,11 @@ def main(config_filename):
     daemon = Daemon(config_filename)
     print(daemon.router_id)
     print(daemon.input_ports)
-    print(daemon.output_ports)
+    print(daemon.output_links)
+    while(1):
+        daemon.send_initial_message()
+        daemon.receive_packets()
+        sleep(2)
     daemon.close_sockets()
 
 if __name__=="__main__":
@@ -92,6 +121,7 @@ if __name__=="__main__":
         print("Error: You must input exactly one parameter which is the config file name")
     else:
         config_filename = sys.argv[1]
+        main(config_filename)
         try:
             main(config_filename)
         except Exception as exception:
