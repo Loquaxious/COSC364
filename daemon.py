@@ -1,10 +1,12 @@
-from os import read
+import os
+import random
 import select
 import socket
 import sys
 from time import sleep
 
-from ripPacket import *
+from RoutingTable import *
+from RIPPacket import *
 from ConfigParser import *
 
 LOCAL_HOST = '127.0.0.1'
@@ -25,6 +27,9 @@ class Daemon:
         self.output_links = config[2]
         self.input_sockets = self.create_input_sockets()
         self.blocking_time = 1 # only block for 1 second each loop
+        self.routing_table = RoutingTable()
+        self.periodic_update_timer = datetime.datetime.now() # Timer for periodic updates
+        self.periodic_update_timer_limit = 30 + random.randrange(-5, 5) # How long the periodic timer update should wait for
 
     def create_input_sockets(self):
         """
@@ -76,11 +81,13 @@ class Daemon:
             :param data: bytecode array, contains a RIP packet
         """
 
+        routing_table_updated = False
+
         rip_header = data[:4]
+        rip_data = data[4:]
         command = rip_header[0]
         version = rip_header[1]
-        router_id = int.from_bytes(rip_header[2:], "big")
-        print(command, version, router_id)
+        next_hop_router_id = int.from_bytes(rip_header[2:], "big")
 
         if command != 2:
             print("Error: Incoming packet command is invalid")
@@ -88,14 +95,103 @@ class Daemon:
         if version != 2:
             print("Error: Incoming packet version is invalid")
             return
-        if not (0 < router_id < 64001):
+        if not (0 < next_hop_router_id < 64001):
             print("Error: Incoming packet router id is invalid")
             return
-        if not self.output_links.check_router_in_outputs(router_id):
+        if not self.output_links.check_router_in_outputs(next_hop_router_id):
             print("Discarding packet: Router id not in outputs")
             return
 
-        print("Valid Packet")
+        print(f"Received packet from router {next_hop_router_id}")
+
+        if not self.routing_table.check_route_known(next_hop_router_id):
+            link = self.output_links.get_link_by_router(next_hop_router_id)
+            self.routing_table.add_route(next_hop_router_id, next_hop_router_id, link.metric)
+            routing_table_updated = True
+        else:
+            self.routing_table.get_route_by_router(next_hop_router_id).reset_timers()
+        routes = []
+
+        for i in range(0, int(len(rip_data)) - 20, 20):
+            routes.append(rip_data[i:i + 20])
+        
+        for route in routes:
+            # Check if the incoming router id is valid
+            router_id = route[2]
+            if not (0 < router_id < 64001):
+                print("Discarding route: Incoming route router id is invalid")
+                continue
+            if router_id == self.router_id: 
+                print("Discarding router: Router id is the same as host router")
+                continue
+
+            metric = route[2] + self.output_links.get_link_by_router(router_id).metric
+            if not (0 < metric < 17):
+                print("Discarding route: Incoming route metric is invalid")
+                continue
+            
+            route_object = self.routing_table.get_route_by_router(router_id)
+            if route_object:
+                if metric == 16:
+                    route_object.mark_for_deletion()
+                    routing_table_updated = True
+                    continue
+                elif metric < route_object.metric:
+                    route_object.metric = metric
+                    route_object.next_hop = next_hop_router_id
+                    routing_table_updated = True
+                route_object.reset_timers()
+            else:
+                self.routing_table.add_route(router_id, next_hop_router_id, metric)
+                routing_table_updated = True
+        
+        if routing_table_updated:
+            print("Sending update message")
+            self.send_initial_message()
+    
+    def get_periodic_update_timer(self):
+        """
+            Converts the update timer into seconds
+        """
+        return (datetime.datetime.now() - self.periodic_update_timer).seconds
+    
+    def reset_periodic_update_timer(self):
+        """
+            Resets the update timer to the current time
+        """
+        self.periodic_update_timer = datetime.datetime.now()
+
+    def check_periodic_update_timer(self):
+        """
+            Checks if the update timer has expired, if so, sends out updates then resets the timer
+        """
+        if self.get_periodic_update_timer() > self.periodic_update_timer_limit:
+            print("Sending periodic updates")
+            # self.send_update_packets()
+            self.send_initial_message()
+            self.reset_periodic_update_timer()
+    
+    def check_route_timers(self):
+        """
+            Tells the routing table to check the timers for all its routes
+        """
+        self.routing_table.check_route_timers()
+    
+    def print_routing_table(self):
+        """
+            Clears the terminal then prints the routing table
+        """
+        if os.name == "nt": # OS is windows
+            os.system("cls")
+        else: # MacOS or Linux
+            os.system("clear")
+        
+        print(self.routing_table)
+        
+
+
+
+            
         
         
 
@@ -110,9 +206,12 @@ def main(config_filename):
     print(daemon.router_id)
     print(daemon.input_ports)
     print(daemon.output_links)
+    daemon.send_initial_message()
     while(1):
-        daemon.send_initial_message()
+        daemon.print_routing_table()
         daemon.receive_packets()
+        daemon.check_periodic_update_timer()
+        daemon.check_route_timers()
         sleep(2)
     daemon.close_sockets()
 

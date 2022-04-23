@@ -114,6 +114,9 @@ class ConfigParser:
                     router_id = int(port_data[2])
                 except: 
                     raise Exception(f"Error: Invalid format on line {outputs_line}. Router id for port number {port_index} must be an integer.")
+                
+                if router_id == self.ROUTER_ID:
+                    raise Exception(f"Error: Invalid format on line {outputs_line}. Router id for port number {port_index} must not be the same as the host router id.")
 
                 # Check port number is an integer in the correct range
                 try:

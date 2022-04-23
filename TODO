@@ -1,2 +1,1 @@
-Finish output port checking
-Comment functions
+Make sure rip packet has between 1 and 25 entries

@@ -27,21 +27,27 @@ class RIPPacket:
             self.packet[2] = src_id >> 8
             self.packet[3] = (src_id & 0x00FF)
         else:
-            print("Failed to create RIP packet as source router id is invalid")
+            print("Error: Failed to create RIP packet. Source router id is invalid")
             raise ValueError
 
-    def rip_packet_entry(self, port_no, next_hop, metric):
+    def rip_packet_entry(self, router_id, next_hop, metric):
         """
         Appends a RIP packet entry onto the common header of the RIP packet and returns it
-        :param port_no: port number of input port
+        :param router_id: router_id of the router the packet concerns
         :param next_hop: the router id of the next hop router in the path
         :param metric: the cost metric of the path to the destination
         :return: the RIP packet (byte array) including the common header and packet entry(ies)
         """
         rip_entry = bytearray(20)
 
-        rip_entry[0] = port_no >> 8  # AFI = port number
-        rip_entry[1] = port_no & 0x00FF  # AFI = port number
+        if self.is_router_id_valid(router_id):
+
+            rip_entry[0] = router_id >> 8  # AFI = router_id
+            rip_entry[1] = router_id & 0x00FF  # AFI = router_id
+        else:
+            # Drop entry as invalid router id
+            print("Dropped entry as invalid router id")
+            return self.packet
 
         # Check for the value of the next hop Router ID and print for debugging
         if self.is_router_id_valid(next_hop):

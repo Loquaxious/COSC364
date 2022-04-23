@@ -13,18 +13,26 @@ class OutputLinks:
         """
         return f"OutputLinks({[link for link in self.links]})"
     
-    def add_link(self, port, router_id, metric):
+    def add_link(self, port, metric, router_id):
         """
             Creates a new link with the given values and adds it to its list of links
         """
-        self.links.append(Link(port, router_id, metric))
+        self.links.append(Link(port, metric, router_id))
 
-    def get_link(self, port):
+    def get_link_by_port(self, port):
         """
             Looks for a link with the given port and returns it if found, returns None otherwise
         """
         for link in self.links:
             if link.port == port:
+                return link
+    
+    def get_link_by_router(self, router_id):
+        """
+            Looks for a link with the given router_id and returns it if found, returns None otherwise
+        """
+        for link in self.links:
+            if link.router_id == router_id:
                 return link
 
     def get_ports_list(self):
