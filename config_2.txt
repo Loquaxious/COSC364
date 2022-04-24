@@ -3,5 +3,5 @@ router-id, 2
                  
 # hajshdkjahsd
      #hjashk
-input-ports, 5900
-outputs, 5002-1-1
+input-ports, 5900, 5901
+outputs, 5002-1-1, 5420-3-3

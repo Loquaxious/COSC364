@@ -1,10 +1,3 @@
-"""
-Program for putting together a RIP message
-Author: Logan Lee
-Student ID: 26029766
-"""
-
-
 COMMAND = 0x02  # As always a response packet
 VERSION = 0x02  # Version number is always 2 as stated in 4.2 of the assignment specification
 
@@ -19,7 +12,7 @@ class RIPPacket:
         Initialises the common header of the RIP message as a byte array
         :param src_id: the source id of the router the packet is being sent from
         """
-        if self.is_router_id_valid(src_id):
+        if is_router_id_valid(src_id):
             self.src_id = src_id
             self.packet = bytearray(4)
             self.packet[0] = COMMAND
@@ -30,7 +23,7 @@ class RIPPacket:
             print("Error: Failed to create RIP packet. Source router id is invalid")
             raise ValueError
 
-    def rip_packet_entry(self, router_id, next_hop, metric):
+    def append_entry(self, router_id, next_hop, metric):
         """
         Appends a RIP packet entry onto the common header of the RIP packet and returns it
         :param router_id: router_id of the router the packet concerns
@@ -40,17 +33,17 @@ class RIPPacket:
         """
         rip_entry = bytearray(20)
 
-        if self.is_router_id_valid(router_id):
+        if is_router_id_valid(router_id):
 
             rip_entry[0] = router_id >> 8  # AFI = router_id
             rip_entry[1] = router_id & 0x00FF  # AFI = router_id
         else:
             # Drop entry as invalid router id
             print("Dropped entry as invalid router id")
-            return self.packet
+            # return self.packet
 
         # Check for the value of the next hop Router ID and print for debugging
-        if self.is_router_id_valid(next_hop):
+        if is_router_id_valid(next_hop):
             rip_entry[4] = next_hop >> 24
             rip_entry[5] = (next_hop & 0x00FF0000) >> 16
             rip_entry[6] = (next_hop & 0x0000FF00) >> 8
@@ -58,10 +51,10 @@ class RIPPacket:
         else:
             # Drop entry as invalid next hop router id
             print("Dropped entry as invalid next hop router id")
-            return self.packet
+            # return self.packet
 
         # Check for the value of the metric and print for debugging
-        if self.is_metric_valid(metric):
+        if is_metric_valid(metric):
             rip_entry[16] = metric >> 24
             rip_entry[17] = (metric & 0x00FF0000) >> 16
             rip_entry[18] = (metric & 0x0000FF00) >> 8
@@ -69,26 +62,32 @@ class RIPPacket:
         else:
             # Drop the entry as invalid metric
             print("Dropped the entry as invalid metric")
-            return self.packet
+            # return self.packet
 
         self.packet.extend(rip_entry)
-        return self.packet
+        # return self.packet
 
-    def is_router_id_valid(self, router_id):
-        """
-        Checks to see if the router id valid
-        :param router_id: an integer representing the router id
-        :return: boolean, true if id is valid, false if not
-        """
-        return 0 < router_id < 64001
+    def refresh_entries(self):
+        """Reverts the message back to just the common header (deletes all entries)"""
+        self.packet = self.packet[:4]
 
-    def is_metric_valid(self, metric):
-        """
-        Checks to see if the given cost metric is a valid value
-        :param metric: integer, the cost metric of a RIP path
-        :return: boolean, true if value is valid, false if not
-        """
-        return 0 < metric < 17
+
+def is_router_id_valid(router_id):
+    """
+    Checks to see if the router id valid
+    :param router_id: an integer representing the router id
+    :return: boolean, true if id is valid, false if not
+    """
+    return 0 < router_id < 64001
+
+
+def is_metric_valid(metric):
+    """
+    Checks to see if the given cost metric is a valid value
+    :param metric: integer, the cost metric of a RIP path
+    :return: boolean, true if value is valid, false if not
+    """
+    return 0 < metric < 17
 
 
 # def main():
@@ -99,11 +98,14 @@ class RIPPacket:
 #     # print(RIPPacket(0))
 #     # print(RIPPacket(64001))
 #
-#     print(test.rip_packet_entry(3000, 0, 0))
-#     print(test.rip_packet_entry(3000, 1, 17))
-#     print(test.rip_packet_entry(3000, 64001, 1))
-#     print(test.rip_packet_entry(3000, 1, 1))
-#     print(test.rip_packet_entry(3000, 64000, 16))
+#     print(test.packet)
+#     test.rip_packet_entry(3000, 0, 0)
+#     test.rip_packet_entry(3000, 1, 17)
+#     test.rip_packet_entry(3000, 64001, 1)
+#     test.rip_packet_entry(3000, 1, 1)
+#     test.rip_packet_entry(3000, 64000, 16)
+#     print(test.packet)
+#     print(test.packet[-1])
 #
 #
 # if __name__ == '__main__':

@@ -1,4 +1,7 @@
 from Route import *
+import sys
+
+
 class RoutingTable:
     """
         A routing table that holds information about routes the router knows of
@@ -59,3 +62,19 @@ class RoutingTable:
         for i in routes_to_remove:
             print(f"Removing route to router {self.routes[i].destination}")
             del self.routes[i]
+
+def main():
+    """Testing"""
+    table = RoutingTable()
+    print(table)
+    table.add_route(4, 2, 1)
+    table.add_route(14, 2, 15)
+    table.add_route(9, 3, 16)
+    print(table)
+    print(table.get_route_by_router(9))
+
+if __name__ == "__main__":
+    if len(sys.argv) != 1:
+        print("Error: You must input exactly one parameter which is the config file name")
+    else:
+        main()

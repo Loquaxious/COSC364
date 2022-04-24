@@ -28,6 +28,9 @@ class Daemon:
         self.input_sockets = self.create_input_sockets()
         self.blocking_time = 1 # only block for 1 second each loop
         self.routing_table = RoutingTable()
+        # Load link data straight into routing table as if data sent out of order on router reboot metrics can get confused
+        for link in self.output_links.links:
+            self.routing_table.add_route(link.router_id, link.router_id, link.metric)
         self.periodic_update_timer = datetime.datetime.now() # Timer for periodic updates
         self.periodic_update_timer_limit = 30 + random.randrange(-5, 5) # How long the periodic timer update should wait for
 
@@ -44,15 +47,36 @@ class Daemon:
         return sockets
 
     def send_initial_message(self):
-        """
-        Sends neighbouring routers message with just the RIP packet common header, so they add this router to routing
-        tables
-        """
-        init_packet = RIPPacket(self.router_id).packet
+        """Sends an empty message with just the RIP packet common header to initialise directly connected routing tables
+            Only sent once a router is booted up"""
+        message = RIPPacket(self.router_id)
         send_socket = self.input_sockets[0]
         for port in self.output_links.get_ports_list():
             try:
-                send_socket.sendto(init_packet, (LOCAL_HOST, port))
+                send_socket.sendto(message.packet, (LOCAL_HOST, port))
+            except:
+                pass
+
+    def send_update_packets(self):
+        """Sends a full RIP packet with entries for all routes in routing table
+            (to all directly connected neighbours)"""
+        message = RIPPacket(self.router_id)
+        send_socket = self.input_sockets[0]
+        for port in self.output_links.get_ports_list():
+            print('port', port)
+            for route in self.routing_table.routes:
+                """Below if-block is for split horizon with poisoned reverse:
+                    Checks if next hop is different to destination and if the router id of the message is being sent is 
+                    the same as the next hop. If true sets metric to infinity so receiving router does not process the 
+                    route, otherwise sends it normally"""
+                if route.next_hop != route.destination and \
+                        self.output_links.get_link_by_port(port).router_id == route.next_hop:
+                    message.append_entry(route.destination, route.next_hop, 16)
+                else:
+                    message.append_entry(route.destination, route.next_hop, route.metric)
+            try:
+                send_socket.sendto(message.packet, (LOCAL_HOST, port))
+                message.refresh_entries()  # Deletes all entries from message
             except:
                 pass
 
@@ -110,28 +134,32 @@ class Daemon:
             routing_table_updated = True
         else:
             self.routing_table.get_route_by_router(next_hop_router_id).reset_timers()
-        routes = []
 
-        for i in range(0, int(len(rip_data)) - 20, 20):
+        routes = []
+        for i in range(0, int(len(rip_data)), 20):
             routes.append(rip_data[i:i + 20])
-        
+
         for route in routes:
             # Check if the incoming router id is valid
-            router_id = route[2]
+            router_id = int.from_bytes(route[:2], 'big')
+            # print(f"Route router id: {router_id}")
             if not (0 < router_id < 64001):
                 print("Discarding route: Incoming route router id is invalid")
                 continue
-            if router_id == self.router_id: 
-                print("Discarding router: Router id is the same as host router")
+            if router_id == self.router_id:
+                print("Discarding route: Router id is the same as host router")
                 continue
 
-            metric = route[2] + self.output_links.get_link_by_router(router_id).metric
+            link = self.output_links.get_link_by_router(next_hop_router_id)
+            metric = int.from_bytes(route[16:], 'big') + link.metric
+            print('metric', metric)
             if not (0 < metric < 17):
                 print("Discarding route: Incoming route metric is invalid")
                 continue
             
             route_object = self.routing_table.get_route_by_router(router_id)
             if route_object:
+                # print(f"metric {metric}, stored_metric {route_object.metric}")
                 if metric == 16:
                     route_object.mark_for_deletion()
                     routing_table_updated = True
@@ -147,7 +175,7 @@ class Daemon:
         
         if routing_table_updated:
             print("Sending update message")
-            self.send_initial_message()
+            self.send_update_packets()
     
     def get_periodic_update_timer(self):
         """
@@ -167,8 +195,7 @@ class Daemon:
         """
         if self.get_periodic_update_timer() > self.periodic_update_timer_limit:
             print("Sending periodic updates")
-            # self.send_update_packets()
-            self.send_initial_message()
+            self.send_update_packets()
             self.reset_periodic_update_timer()
     
     def check_route_timers(self):
@@ -187,8 +214,6 @@ class Daemon:
             os.system("clear")
         
         print(self.routing_table)
-        
-
 
 
             

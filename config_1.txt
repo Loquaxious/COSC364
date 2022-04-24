@@ -3,6 +3,6 @@ router-id, 1
                  
 # hajshdkjahsd
      #hjashk
-input-ports, 5002
+input-ports, 5002, 5003, 5004
 
-outputs, 5900-1-2
+outputs, 5900-1-2, 5700-8-7, 5600-5-6
