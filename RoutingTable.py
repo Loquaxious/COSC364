@@ -54,16 +54,18 @@ class RoutingTable:
             Runs through the routes in the table and marks them for deletion if the deletion timer is up.
             Removes routes from the table if the route garbage collection timer is up
         """
-        routes_to_remove = []
+        routes_to_remove = set()
         send_updates = False
         for i in range(len(self.routes)):
             timer_check_result = self.routes[i].check_timers()
             if timer_check_result == 0:
-                routes_to_remove = [i] + routes_to_remove
+                routes_to_remove.add(i)
+                [routes_to_remove.add(x.destination) if x.next_hop == self.routes[i].destination else '' for x in self.routes]
             if timer_check_result in [0, 1]:
                 send_updates = True
         
-        for i in routes_to_remove:
+        # Go from highest index to smallest to avoid index out of bounds
+        for i in sorted(routes_to_remove, reverse=True):
             print(f"Removing route to router {self.routes[i].destination}")
             del self.routes[i]
         

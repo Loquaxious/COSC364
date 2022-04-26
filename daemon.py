@@ -130,6 +130,7 @@ class Daemon:
         link = self.output_links.get_link_by_router(next_hop_router_id)
         if not self.routing_table.check_route_known(next_hop_router_id):
             self.routing_table.add_route(next_hop_router_id, next_hop_router_id, link.metric)
+            print("route not known")
             routing_table_updated = True
         else:
             self.routing_table.get_route_by_router(next_hop_router_id).reset_timers()
@@ -148,7 +149,7 @@ class Daemon:
 
             # Check if the incoming router id is valid
             router_id = int.from_bytes(route[4:8], 'big')
-            # print(f"Route router id: {router_id}")
+            print(f"Route router id: {router_id}")
             if not (0 < router_id < 64001):
                 print("Discarding route: Incoming route router id is invalid")
                 continue
@@ -161,30 +162,29 @@ class Daemon:
             route_object = self.routing_table.get_route_by_router(router_id)
             print('metric', metric)
             if not (0 < metric < 17):
-                # If route is invalid and we have it in our table, then mark it for deletion
-                if route_object:
-                    # route_object.mark_for_deletion()
-                    # print(f"Marked route to {route_object.destination} through {next_hop_router_id} for deletion")
-                    pass
-                else: # Poisoned packet, discard
-                    print("Discarding route: Incoming route metric is invalid")
+                print("Discarding route: Incoming route metric is invalid")
                 continue
             
             
             if route_object:
                 # print(f"metric {metric}, stored_metric {route_object.metric}")
-                if metric == 16:
-                    route_object.mark_for_deletion()
-                    routing_table_updated = True
-                    continue
-                elif metric < route_object.metric:
+                # if metric == 16:
+                #     route_object.mark_for_deletion()
+                #     print("route marked for deletion")
+                #     routing_table_updated = True
+                #     continue
+                # el
+                if metric < route_object.metric:
                     # New path is shorter so update route to match
                     route_object.update_route(route_object.destination, next_hop_router_id, metric)
+                    print("route updated")
                     routing_table_updated = True
                 route_object.reset_timers()
             else:
                 self.routing_table.add_route(router_id, next_hop_router_id, metric)
+                print("route added")
                 routing_table_updated = True
+            print()
         
         if routing_table_updated:
             print("Sending update message")
@@ -253,7 +253,7 @@ def main(config_filename):
         daemon.receive_packets()
         daemon.check_periodic_update_timer()
         daemon.check_route_timers()
-        sleep(2)
+        sleep(5)
     daemon.close_sockets()
 
 if __name__=="__main__":
