@@ -71,9 +71,9 @@ class Daemon:
                     route, otherwise sends it normally"""
                 if route.next_hop != route.destination and \
                         self.output_links.get_link_by_port(port).router_id == route.next_hop:
-                    message.append_entry(route.destination, route.next_hop, 16)
+                    message.append_entry(route.destination, 16)
                 else:
-                    message.append_entry(route.destination, route.next_hop, route.metric)
+                    message.append_entry(route.destination, route.metric)
             try:
                 send_socket.sendto(message.packet, (LOCAL_HOST, port))
                 message.refresh_entries()  # Deletes all entries from message
@@ -127,21 +127,27 @@ class Daemon:
             return
 
         print(f"Received packet from router {next_hop_router_id}")
-
+        link = self.output_links.get_link_by_router(next_hop_router_id)
         if not self.routing_table.check_route_known(next_hop_router_id):
-            link = self.output_links.get_link_by_router(next_hop_router_id)
             self.routing_table.add_route(next_hop_router_id, next_hop_router_id, link.metric)
             routing_table_updated = True
         else:
             self.routing_table.get_route_by_router(next_hop_router_id).reset_timers()
+            # self.routing_table.get_route_by_router(next_hop_router_id).update_route(next_hop_router_id, next_hop_router_id, link.metric)
 
         routes = []
         for i in range(0, int(len(rip_data)), 20):
             routes.append(rip_data[i:i + 20])
 
         for route in routes:
+
+            # Check the packet AFI
+            packet_afi = int.from_bytes(route[:2], 'big')
+            if packet_afi != 0:
+                print("Discarding route: AFI is invalid")
+
             # Check if the incoming router id is valid
-            router_id = int.from_bytes(route[:2], 'big')
+            router_id = int.from_bytes(route[4:8], 'big')
             # print(f"Route router id: {router_id}")
             if not (0 < router_id < 64001):
                 print("Discarding route: Incoming route router id is invalid")
@@ -152,12 +158,19 @@ class Daemon:
 
             link = self.output_links.get_link_by_router(next_hop_router_id)
             metric = int.from_bytes(route[16:], 'big') + link.metric
+            route_object = self.routing_table.get_route_by_router(router_id)
             print('metric', metric)
             if not (0 < metric < 17):
-                print("Discarding route: Incoming route metric is invalid")
+                # If route is invalid and we have it in our table, then mark it for deletion
+                if route_object:
+                    # route_object.mark_for_deletion()
+                    # print(f"Marked route to {route_object.destination} through {next_hop_router_id} for deletion")
+                    pass
+                else: # Poisoned packet, discard
+                    print("Discarding route: Incoming route metric is invalid")
                 continue
             
-            route_object = self.routing_table.get_route_by_router(router_id)
+            
             if route_object:
                 # print(f"metric {metric}, stored_metric {route_object.metric}")
                 if metric == 16:
@@ -165,8 +178,8 @@ class Daemon:
                     routing_table_updated = True
                     continue
                 elif metric < route_object.metric:
-                    route_object.metric = metric
-                    route_object.next_hop = next_hop_router_id
+                    # New path is shorter so update route to match
+                    route_object.update_route(route_object.destination, next_hop_router_id, metric)
                     routing_table_updated = True
                 route_object.reset_timers()
             else:
@@ -201,8 +214,11 @@ class Daemon:
     def check_route_timers(self):
         """
             Tells the routing table to check the timers for all its routes
+            If a route has been changed, triggers an update
         """
-        self.routing_table.check_route_timers()
+        if self.routing_table.check_route_timers():
+            self.send_update_packets()
+
     
     def print_routing_table(self):
         """
@@ -231,7 +247,7 @@ def main(config_filename):
     print(daemon.router_id)
     print(daemon.input_ports)
     print(daemon.output_links)
-    daemon.send_initial_message()
+    daemon.send_update_packets()
     while(1):
         daemon.print_routing_table()
         daemon.receive_packets()

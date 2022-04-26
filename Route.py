@@ -42,17 +42,29 @@ class Route:
         """
         self.deletion_timer = None
         self.garbage_timer = datetime.datetime.now()
+        self.metric = 16
     
     def check_timers(self):
         """
             Checks if the timers have gone over their time threshold 
-            Returns False if the route should stay in the routing table,
-            True if it should be removed
+            Returns an integer between 0 and 2.
+            0: Route should be removed from table
+            1: Route has been marked for deletion
+            2: Route is okay
         """
         if self.get_garbage_timer() > self.timer_limit:
-            return True
+            return 0
         if self.get_deletion_timer() > self.timer_limit:
             print(f"Marking route to router {self.destination} for deletion")
             self.mark_for_deletion()
-        return False
+            return 1
+        return 2
+
+    def update_route(self, destination, next_hop, metric):
+        """
+            Updates the route with the given information
+        """
+        self.destination = destination
+        self.next_hop = next_hop
+        self.metric = metric
         

@@ -55,13 +55,19 @@ class RoutingTable:
             Removes routes from the table if the route garbage collection timer is up
         """
         routes_to_remove = []
+        send_updates = False
         for i in range(len(self.routes)):
-            if self.routes[i].check_timers():
-                routes_to_remove.append(i)
+            timer_check_result = self.routes[i].check_timers()
+            if timer_check_result == 0:
+                routes_to_remove = [i] + routes_to_remove
+            if timer_check_result in [0, 1]:
+                send_updates = True
         
         for i in routes_to_remove:
             print(f"Removing route to router {self.routes[i].destination}")
             del self.routes[i]
+        
+        return send_updates
 
 def main():
     """Testing"""
@@ -73,8 +79,5 @@ def main():
     print(table)
     print(table.get_route_by_router(9))
 
-if __name__ == "__main__":
-    if len(sys.argv) != 1:
-        print("Error: You must input exactly one parameter which is the config file name")
-    else:
-        main()
+if __name__ == "__main__":  
+    main()
