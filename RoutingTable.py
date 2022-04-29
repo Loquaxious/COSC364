@@ -65,7 +65,9 @@ class RoutingTable:
                 send_updates = True
         
         # Go from highest index to smallest to avoid index out of bounds
+        print(routes_to_remove)
         for i in sorted(routes_to_remove, reverse=True):
+            print(i)
             print(f"Removing route to router {self.routes[i].destination}")
             del self.routes[i]
         

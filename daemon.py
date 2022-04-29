@@ -165,21 +165,27 @@ class Daemon:
                 print("Discarding route: Incoming route metric is invalid")
                 continue
             
-            
             if route_object:
                 # print(f"metric {metric}, stored_metric {route_object.metric}")
-                # if metric == 16:
-                #     route_object.mark_for_deletion()
-                #     print("route marked for deletion")
-                #     routing_table_updated = True
-                #     continue
-                # el
-                if metric < route_object.metric:
-                    # New path is shorter so update route to match
-                    route_object.update_route(route_object.destination, next_hop_router_id, metric)
-                    print("route updated")
-                    routing_table_updated = True
-                route_object.reset_timers()
+                if route_object.next_hop == next_hop_router_id:
+                    # For triggered updates:
+                    # Updates route (whether its better ot worse) if metric is different
+                    if route_object.metric != metric:
+                        route_object.update_route(route_object.destination, next_hop_router_id, metric)
+                        print('route updated: same next hop router as packets source router')
+                        routing_table_updated = True
+                    if metric == 16:
+                        route_object.mark_for_deletion()
+                        print("route marked for deletion")
+                        routing_table_updated = True
+                        continue
+                else:
+                    if metric < route_object.metric:
+                        # New path is shorter so update route to match
+                        route_object.update_route(route_object.destination, next_hop_router_id, metric)
+                        print("route updated: route has better metric")
+                        routing_table_updated = True
+                        route_object.reset_timers()
             else:
                 self.routing_table.add_route(router_id, next_hop_router_id, metric)
                 print("route added")
