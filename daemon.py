@@ -225,7 +225,6 @@ class Daemon:
         if self.routing_table.check_route_timers():
             self.send_update_packets()
 
-    
     def print_routing_table(self):
         """
             Clears the terminal then prints the routing table
@@ -236,12 +235,6 @@ class Daemon:
             os.system("clear")
         
         print(self.routing_table)
-
-
-            
-        
-        
-
 
 
 def main(config_filename):
@@ -261,6 +254,7 @@ def main(config_filename):
         daemon.check_route_timers()
         sleep(5)
     daemon.close_sockets()
+
 
 if __name__=="__main__":
     if len(sys.argv) != 2:

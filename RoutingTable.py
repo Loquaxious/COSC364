@@ -59,29 +59,26 @@ class RoutingTable:
         for i in range(len(self.routes)):
             timer_check_result = self.routes[i].check_timers()
             if timer_check_result == 0:
-                routes_to_remove.add(i)
+                routes_to_remove.add(self.routes[i].destination)
                 [routes_to_remove.add(x.destination) if x.next_hop == self.routes[i].destination else '' for x in self.routes]
             if timer_check_result in [0, 1]:
                 send_updates = True
-        
-        # Go from highest index to smallest to avoid index out of bounds
-        print(routes_to_remove)
-        for i in sorted(routes_to_remove, reverse=True):
-            print(i)
-            print(f"Removing route to router {self.routes[i].destination}")
-            del self.routes[i]
+
+        # Removes routes from self.routes if routes_to_removes has something to remove
+        if len(routes_to_remove) > 0:
+            self.routes = [i for i in self.routes if i.destination not in routes_to_remove]
         
         return send_updates
 
-def main():
-    """Testing"""
-    table = RoutingTable()
-    print(table)
-    table.add_route(4, 2, 1)
-    table.add_route(14, 2, 15)
-    table.add_route(9, 3, 16)
-    print(table)
-    print(table.get_route_by_router(9))
-
-if __name__ == "__main__":  
-    main()
+# def main():
+#     """Testing"""
+#     table = RoutingTable()
+#     print(table)
+#     table.add_route(4, 2, 1)
+#     table.add_route(14, 2, 15)
+#     table.add_route(9, 3, 16)
+#     print(table)
+#     print(table.get_route_by_router(9))
+#
+# if __name__ == "__main__":
+#     main()
