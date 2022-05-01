@@ -1,6 +1,7 @@
 from Link import *
 
 class OutputLinks:
+    """Class that represents the collection of all output links of a router"""
     def __init__(self):
         """
             Initializes the object by creating an empty list of links

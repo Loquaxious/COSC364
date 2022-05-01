@@ -33,6 +33,11 @@ class RIPPacket:
         """
         rip_entry = bytearray(20)
 
+        # Checks that there is not more than 25 entries in the message (The max given in the RIP spec)
+        if len(self.packet) > 500:
+            print('Cannot add more that 25 entries to a packet')
+            return
+
         # Check for the value of the Router ID and print for debugging
         if is_router_id_valid(router_id):
             rip_entry[4] = router_id >> 24

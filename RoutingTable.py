@@ -64,8 +64,8 @@ class RoutingTable:
             if timer_check_result in [0, 1]:
                 send_updates = True
 
-        # Removes routes from self.routes if routes_to_removes has something to remove
         if len(routes_to_remove) > 0:
+            # Removes any route where the downed router is next hop router from self.routes
             self.routes = [i for i in self.routes if i.destination not in routes_to_remove]
         
         return send_updates

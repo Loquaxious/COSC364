@@ -1,4 +1,5 @@
 class Link:
+    """Class that represents a link between two neighbouring routers"""
     def __init__(self, port, metric, router_id):
         """
             Initializes a link object

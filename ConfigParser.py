@@ -3,6 +3,7 @@ from OutputLinks import *
 
 
 class ConfigParser:
+    """Class that reads and parses the config files"""
     INPUT_PORTS = []
     OUTPUT_LINKS = OutputLinks()
     ROUTER_ID = None

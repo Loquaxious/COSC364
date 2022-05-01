@@ -4,6 +4,7 @@ import time
 
 
 class Route:
+    """A class that represents a RIPv2 route to destination node"""
     def __init__(self, destination, next_hop, metric):
         self.destination = destination
         self.next_hop = next_hop
