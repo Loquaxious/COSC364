@@ -3,7 +3,7 @@ from OutputLinks import *
 
 
 class ConfigParser:
-    """Class that reads and parses the config files"""
+    """Class that reads and parses config files"""
     INPUT_PORTS = []
     OUTPUT_LINKS = OutputLinks()
     ROUTER_ID = None
@@ -63,13 +63,13 @@ class ConfigParser:
                 # Check id number is an integer in the correct range
                 self.ROUTER_ID = int(router_id_data[1])
                 if self.ROUTER_ID < 1 or self.ROUTER_ID > 64000:
-                    raise Exception(f"Error: Invalid format on line {router_id_line}. Router ID must be an integer between 1 and 64000.")
+                    raise Exception(f"Error: Invalid format on config line {router_id_line}. Router ID must be an integer between 1 and 64000.")
 
             except ValueError: 
-                raise Exception(f"Error: Invalid format on line {router_id_line}. Router ID must be an integer.")
+                raise Exception(f"Error: Invalid format on config line {router_id_line}. Router ID must be an integer.")
 
         else:
-            raise Exception(f"Error: Invalid format on line {router_id_line}. Correct format is 'router-id, {{integer between 1 and 64000}}'")
+            raise Exception(f"Error: Invalid format on config line {router_id_line}. Correct format is 'router-id, {{integer between 1 and 64000}}'")
 
     def check_config_input_ports(self, input_ports_data, input_ports_line):
         """
@@ -82,17 +82,17 @@ class ConfigParser:
                     # Check port number is an integer in the correct range
                     port = int(input_ports_data[port_index])
                     if port < 1024 or port > 64000:
-                        raise Exception(f"Error: Invalid format on line {input_ports_line}. Port number {port_index} must be an integer between 1024 and 64000.")
+                        raise Exception(f"Error: Invalid format on config line {input_ports_line}. Port number {port_index} must be an integer between 1024 and 64000.")
                     else:
                         if port in self.INPUT_PORTS: # If port number is duplicated
                             repeated_port_index = self.INPUT_PORTS.index(port) + 1
-                            raise Exception(f"Error: Invalid format on line {input_ports_line}. Port numbers {repeated_port_index} and {port_index} are duplicates." )
+                            raise Exception(f"Error: Invalid format on config line {input_ports_line}. Port numbers {repeated_port_index} and {port_index} are duplicates." )
                         else:
                             self.INPUT_PORTS.append(port)
             except ValueError: 
-                raise Exception(f"Error: Invalid format on line {input_ports_line}. Port number {port_index} must be an integer.")
+                raise Exception(f"Error: Invalid format on config line {input_ports_line}. Port number {port_index} must be an integer.")
         else:
-            raise Exception(f"Error: Invalid format on line {input_ports_line}. Correct format is 'input-ports, {{one or more integers between 1024 and 64000 separated by ', '}}'")
+            raise Exception(f"Error: Invalid format on config line {input_ports_line}. Correct format is 'input-ports, {{one or more integers between 1024 and 64000 separated by ', '}}'")
 
     def check_config_outputs(self, outputs_data, outputs_line):
         """
@@ -106,41 +106,41 @@ class ConfigParser:
 
                 # Check metric is valid
                 try:
-                    metric = int(port_data[1])
-                except: 
-                    raise Exception(f"Error: Invalid format on line {outputs_line}. Metric for port number {port_index} must be an integer.")
+                    metric = int(port_data[1])  
+                except Exception as e: 
+                    raise Exception(f"Error: Invalid format on config line {outputs_line}. Metric for port number {port_index} must be an integer.") from None
 
                 # Check the outbound router id is valid
                 try:
                     router_id = int(port_data[2])
                 except: 
-                    raise Exception(f"Error: Invalid format on line {outputs_line}. Router id for port number {port_index} must be an integer.")
+                    raise Exception(f"Error: Invalid format on config line {outputs_line}. Router id for port number {port_index} must be an integer.")
                 
                 if router_id == self.ROUTER_ID:
-                    raise Exception(f"Error: Invalid format on line {outputs_line}. Router id for port number {port_index} must not be the same as the host router id.")
+                    raise Exception(f"Error: Invalid format on config line {outputs_line}. Router id for port number {port_index} must not be the same as the host router id.")
 
                 # Check port number is an integer in the correct range
                 try:
                     port = int(port_data[0])
                 except: 
-                    raise Exception(f"Error: Invalid format on line {outputs_line}. Port number {port_index} must be an integer.")
+                    raise Exception(f"Error: Invalid format on config line {outputs_line}. Port number {port_index} must be an integer.")
 
                 if port < 1024 or port > 64000:
-                    raise Exception(f"Error: Invalid format on line {outputs_line}. Port number {port_index} must be an integer between 1024 and 64000.")
+                    raise Exception(f"Error: Invalid format on config line {outputs_line}. Port number {port_index} must be an integer between 1024 and 64000.")
 
                 else:
                     if port in self.OUTPUT_LINKS.get_ports_list(): # If port number is duplicated
                         repeated_port_index = list(self.OUTPUT_LINKS.get_ports_list()).index(port) + 1
-                        raise Exception(f"Error: Invalid format on line {outputs_line}. Port numbers {repeated_port_index} and {port_index} are duplicates." )
+                        raise Exception(f"Error: Invalid format on config line {outputs_line}. Port numbers {repeated_port_index} and {port_index} are duplicates." )
 
                     elif port in self.INPUT_PORTS: # If an output port is also listed as an input port
                         input_port_index = self.INPUT_PORTS.index(port) + 1
-                        raise Exception(f"Error: Invalid format on line {outputs_line}. Output port {port_index} and input port {input_port_index} are duplicates." )
+                        raise Exception(f"Error: Invalid format on config line {outputs_line}. Output port {port_index} and input port {input_port_index} are duplicates." )
 
                     else:
                         self.OUTPUT_LINKS.add_link(port, metric, router_id)
         else:
-            raise Exception(f"Error: Invalid format on line {outputs_line}. Correct format is 'input-ports, {{integer between 1024 and 64000}}-{{link metric}}-{{router id}}'")
+            raise Exception(f"Error: Invalid format on config line {outputs_line}. Correct format is 'input-ports, {{integer between 1024 and 64000}}-{{link metric}}-{{router id}}'")
 
 
     def read_config_file(self, filename):

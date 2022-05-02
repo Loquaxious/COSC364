@@ -21,6 +21,7 @@ class Daemon:
         Initialises the router's information: Gets router id, input ports, output ports using the ConfigParser class
         :param config_filename: string, config filename (or file path) of the relevant router for getting routing information
         """
+
         config = ConfigParser().read_config_file(config_filename)
         self.router_id = config[0]
         self.input_ports = config[1]
@@ -30,6 +31,7 @@ class Daemon:
         self.routing_table = RoutingTable()
         self.periodic_update_timer = datetime.datetime.now() # Timer for periodic updates
         self.periodic_update_timer_limit = 20 + random.randrange(-5, 5) # How long the periodic timer update should wait for
+        self.verbose_mode = False
 
     def create_input_sockets(self):
         """
@@ -49,7 +51,7 @@ class Daemon:
         message = RIPPacket(self.router_id)
         send_socket = self.input_sockets[0]
         for port in self.output_links.get_ports_list():
-            print('port', port)
+            if self.verbose_mode: print('port', port)
             for route in self.routing_table.routes:
                 """Below if-block is for split horizon with poisoned reverse:
                     Checks if next hop is different to destination and if the router id of the message is being sent is 
@@ -100,23 +102,23 @@ class Daemon:
         next_hop_router_id = int.from_bytes(rip_header[2:], "big")
 
         if command != 2:
-            print("Error: Incoming packet command is invalid")
+            if self.verbose_mode: print("Error: Incoming packet command is invalid")
             return
         if version != 2:
-            print("Error: Incoming packet version is invalid")
+            if self.verbose_mode: print("Error: Incoming packet version is invalid")
             return
         if not (0 < next_hop_router_id < 64001):
-            print("Error: Incoming packet router id is invalid")
+            if self.verbose_mode: print("Error: Incoming packet router id is invalid")
             return
         if not self.output_links.check_router_in_outputs(next_hop_router_id):
-            print("Discarding packet: Router id not in outputs")
+            if self.verbose_mode: print("Discarding packet: Router id not in outputs")
             return
 
-        print(f"Received packet from router {next_hop_router_id}")
+        if self.verbose_mode: print(f"Received packet from router {next_hop_router_id}")
         link = self.output_links.get_link_by_router(next_hop_router_id)
         if not self.routing_table.check_route_known(next_hop_router_id):
             self.routing_table.add_route(next_hop_router_id, next_hop_router_id, link.metric)
-            print("route not known")
+            if self.verbose_mode: print("route not known")
             routing_table_updated = True
         else:
             route = self.routing_table.get_route_by_router(next_hop_router_id)
@@ -138,59 +140,59 @@ class Daemon:
             # Check the packet AFI
             packet_afi = int.from_bytes(route[:2], 'big')
             if packet_afi != 0:
-                print("Discarding route: AFI is invalid")
+                if self.verbose_mode: print("Discarding route: AFI is invalid")
 
             # Check if the incoming router id is valid
             router_id = int.from_bytes(route[4:8], 'big')
-            print(f"Route router id: {router_id}")
+            if self.verbose_mode: print(f"Route router id: {router_id}")
             if not (0 < router_id < 64001):
-                print("Discarding route: Incoming route router id is invalid")
+                if self.verbose_mode: print("Discarding route: Incoming route router id is invalid")
                 continue
             if router_id == self.router_id:
-                print("Discarding route: Router id is the same as host router")
+                if self.verbose_mode: print("Discarding route: Router id is the same as host router")
                 continue
 
             link = self.output_links.get_link_by_router(next_hop_router_id)
             metric = int.from_bytes(route[16:], 'big')
             route_object = self.routing_table.get_route_by_router(router_id)
-            print('metric', metric)
+            if self.verbose_mode: print('metric', metric)
 
             # Check that the metric includig the link cost is within the allowed range
             # Allows through metrics of 16 even if they're outside of the range with link
             # cost included because otherwise it wouldn't mark invalid routes for deletion 
-            if (not (0 < (metric + link.metric) < 17)) and metric is not 16:
-                print("Discarding route: Incoming route metric is invalid")
+            if (not (0 < (metric + link.metric) < 17)) and metric != 16:
+                if self.verbose_mode: print("Discarding route: Incoming route metric is invalid")
                 continue
             
             
             if route_object:
-                # print(f"metric {metric}, stored_metric {route_object.metric}")
+                # if self.verbose_mode: print(f"metric {metric}, stored_metric {route_object.metric}")
                 if route_object.next_hop == next_hop_router_id:
                     # For triggered updates:
                     # Updates route (whether its better or worse) if metric is different
                     if route_object.metric != metric + link.metric:
                         route_object.update_route(route_object.destination, next_hop_router_id, metric + link.metric)
-                        print('route updated: same next hop router as packets source router')
+                        if self.verbose_mode: print('route updated: same next hop router as packets source router')
                         routing_table_updated = True
                     if metric == 16:
                         route_object.mark_for_deletion()
-                        print("route marked for deletion")
+                        if self.verbose_mode: print("route marked for deletion")
                         routing_table_updated = True
                         continue
                 else:
                     if metric + link.metric < route_object.metric:
                         # New path is shorter so update route to match
                         route_object.update_route(route_object.destination, next_hop_router_id, metric + link.metric)
-                        print("route updated: route has better metric")
+                        if self.verbose_mode: print("route updated: route has better metric")
                         routing_table_updated = True
             else:
                 self.routing_table.add_route(router_id, next_hop_router_id, metric)
-                print("route added")
+                if self.verbose_mode: print("route added")
                 routing_table_updated = True
-            print()
+            if self.verbose_mode: print()
         
         if routing_table_updated:
-            print("Sending update message")
+            if self.verbose_mode: print("Sending update message")
             self.send_rip_packets()
     
     def get_periodic_update_timer(self):
@@ -210,7 +212,7 @@ class Daemon:
             Checks if the update timer has expired, if so, sends out updates then resets the timer
         """
         if self.get_periodic_update_timer() > self.periodic_update_timer_limit:
-            print("Sending periodic updates")
+            if self.verbose_mode: print("Sending periodic updates")
             self.send_rip_packets()
             self.reset_periodic_update_timer()
     
@@ -226,7 +228,7 @@ class Daemon:
         """
             Clears the terminal then prints the routing table
         """
-        if os.name == "nt": # OS is windows
+        if os.name == "nt": # OS is Windows
             os.system("cls")
         else: # MacOS or Linux
             os.system("clear")
@@ -238,25 +240,28 @@ class Daemon:
             Loops infinitely doing the required tasks to run the rip protocol
         """
         self.send_rip_packets()
-        try:
-            while(1):
-                self.print_routing_table()
-                self.receive_packets()
-                self.check_periodic_update_timer()
-                self.check_route_timers()
-                sleep(1)
-        finally:
-            self.close_sockets()
-        
-
+        while(1):
+            self.print_routing_table()
+            self.receive_packets()
+            self.check_periodic_update_timer()
+            self.check_route_timers()
+            sleep(1)
 
 def main(config_filename):
     """
         Runs the RIP Daemon
         :param config_filename: string, config filename (or file path) of the relevant router for getting routing information
     """
-    daemon = Daemon(config_filename)
-    daemon.run_rip_daemon()
+    try:
+        daemon = Daemon(config_filename)
+        daemon.run_rip_daemon()
+    except Exception as exception:
+            print(exception)
+    finally:
+        # Check if daemon was initialised and close sockets if it was
+        if 'daemon' in locals(): 
+            daemon.close_sockets()
+        quit()
 
 
 if __name__=="__main__":
@@ -265,8 +270,3 @@ if __name__=="__main__":
     else:
         config_filename = sys.argv[1]
         main(config_filename)
-        try:
-            main(config_filename)
-        except Exception as exception:
-            print(exception)
-            quit()
