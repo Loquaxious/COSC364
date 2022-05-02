@@ -58,15 +58,18 @@ class RoutingTable:
         send_updates = False
         for i in range(len(self.routes)):
             timer_check_result = self.routes[i].check_timers()
-            if timer_check_result == 0:
+            if timer_check_result == 0: # The route needs to be removed
+                # Add the route and any that use it as a next hop to the list of routes to remove
                 routes_to_remove.add(self.routes[i].destination)
                 [routes_to_remove.add(x.destination) if x.next_hop == self.routes[i].destination else '' for x in self.routes]
             if timer_check_result in [0, 1]:
                 send_updates = True
 
         if len(routes_to_remove) > 0:
+            print(routes_to_remove)
             # Removes any route where the downed router is next hop router from self.routes
             self.routes = [i for i in self.routes if i.destination not in routes_to_remove]
+            print(self.routes)
         
         return send_updates
 

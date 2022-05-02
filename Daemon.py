@@ -72,9 +72,9 @@ class Daemon:
         """
             Closes all open sockets to quit the program
         """
-        for socket in self.sockets:
+        for socket in self.input_sockets:
             socket.close()
-        self.sockets.clear()
+        self.input_sockets.clear()
 
     def receive_packets(self):
         """
@@ -169,23 +169,26 @@ class Daemon:
                 # if self.verbose_mode: print(f"metric {metric}, stored_metric {route_object.metric}")
                 if route_object.next_hop == next_hop_router_id:
                     # For triggered updates:
-                    # Updates route (whether its better or worse) if metric is different
-                    if route_object.metric != metric + link.metric:
-                        route_object.update_route(route_object.destination, next_hop_router_id, metric + link.metric)
-                        if self.verbose_mode: print('route updated: same next hop router as packets source router')
-                        routing_table_updated = True
-                    if metric == 16:
+                    # If route metric is infinite and route hasn't been marked for deletion already
+                    if metric == 16 and route_object.garbage_timer == None:
                         route_object.mark_for_deletion()
                         if self.verbose_mode: print("route marked for deletion")
                         routing_table_updated = True
                         continue
+                    # Updates route (whether its better or worse) if metric is different
+                    elif route_object.metric != metric + link.metric:
+                        route_object.update_route(route_object.destination, next_hop_router_id, metric + link.metric)
+                        if self.verbose_mode: print('route updated: same next hop router as packets source router')
+                        routing_table_updated = True
+                    else:
+                        route_object.reset_timers()
                 else:
                     if metric + link.metric < route_object.metric:
                         # New path is shorter so update route to match
                         route_object.update_route(route_object.destination, next_hop_router_id, metric + link.metric)
                         if self.verbose_mode: print("route updated: route has better metric")
                         routing_table_updated = True
-            else:
+            elif metric != 16:
                 self.routing_table.add_route(router_id, next_hop_router_id, metric)
                 if self.verbose_mode: print("route added")
                 routing_table_updated = True
@@ -245,7 +248,7 @@ class Daemon:
             self.receive_packets()
             self.check_periodic_update_timer()
             self.check_route_timers()
-            sleep(1)
+            sleep(2)
 
 def main(config_filename):
     """
