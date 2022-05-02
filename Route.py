@@ -68,4 +68,5 @@ class Route:
         self.destination = destination
         self.next_hop = next_hop
         self.metric = metric
+        self.reset_timers()
         

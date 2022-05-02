@@ -28,11 +28,8 @@ class Daemon:
         self.input_sockets = self.create_input_sockets()
         self.blocking_time = 1 # only block for 1 second each loop
         self.routing_table = RoutingTable()
-        # Load link data straight into routing table as if data sent out of order on router reboot metrics can get confused
-        for link in self.output_links.links:
-            self.routing_table.add_route(link.router_id, link.router_id, link.metric)
         self.periodic_update_timer = datetime.datetime.now() # Timer for periodic updates
-        self.periodic_update_timer_limit = 30 + random.randrange(-5, 5) # How long the periodic timer update should wait for
+        self.periodic_update_timer_limit = 20 + random.randrange(-5, 5) # How long the periodic timer update should wait for
 
     def create_input_sockets(self):
         """
@@ -46,18 +43,7 @@ class Daemon:
             sockets.append(temp_socket)
         return sockets
 
-    def send_initial_message(self):
-        """Sends an empty message with just the RIP packet common header to initialise directly connected routing tables
-            Only sent once a router is booted up"""
-        message = RIPPacket(self.router_id)
-        send_socket = self.input_sockets[0]
-        for port in self.output_links.get_ports_list():
-            try:
-                send_socket.sendto(message.packet, (LOCAL_HOST, port))
-            except:
-                pass
-
-    def send_update_packets(self):
+    def send_rip_packets(self):
         """Sends a full RIP packet with entries for all routes in routing table
             (to all directly connected neighbours)"""
         message = RIPPacket(self.router_id)
@@ -133,8 +119,15 @@ class Daemon:
             print("route not known")
             routing_table_updated = True
         else:
-            self.routing_table.get_route_by_router(next_hop_router_id).reset_timers()
-            # self.routing_table.get_route_by_router(next_hop_router_id).update_route(next_hop_router_id, next_hop_router_id, link.metric)
+            route = self.routing_table.get_route_by_router(next_hop_router_id)
+            # Update the route to the router if metric is lower than current metric
+            if link.metric < route.metric:
+                route.update_route(next_hop_router_id, next_hop_router_id, link.metric)
+                routing_table_updated = True
+            # Reset the timers for the route
+            if route.next_hop == next_hop_router_id:
+                route.reset_timers()
+            
 
         routes = []
         for i in range(0, int(len(rip_data)), 20):
@@ -158,20 +151,25 @@ class Daemon:
                 continue
 
             link = self.output_links.get_link_by_router(next_hop_router_id)
-            metric = int.from_bytes(route[16:], 'big') + link.metric
+            metric = int.from_bytes(route[16:], 'big')
             route_object = self.routing_table.get_route_by_router(router_id)
             print('metric', metric)
-            if not (0 < metric < 17):
+
+            # Check that the metric includig the link cost is within the allowed range
+            # Allows through metrics of 16 even if they're outside of the range with link
+            # cost included because otherwise it wouldn't mark invalid routes for deletion 
+            if (not (0 < (metric + link.metric) < 17)) and metric is not 16:
                 print("Discarding route: Incoming route metric is invalid")
                 continue
+            
             
             if route_object:
                 # print(f"metric {metric}, stored_metric {route_object.metric}")
                 if route_object.next_hop == next_hop_router_id:
                     # For triggered updates:
-                    # Updates route (whether its better ot worse) if metric is different
-                    if route_object.metric != metric:
-                        route_object.update_route(route_object.destination, next_hop_router_id, metric)
+                    # Updates route (whether its better or worse) if metric is different
+                    if route_object.metric != metric + link.metric:
+                        route_object.update_route(route_object.destination, next_hop_router_id, metric + link.metric)
                         print('route updated: same next hop router as packets source router')
                         routing_table_updated = True
                     if metric == 16:
@@ -180,12 +178,11 @@ class Daemon:
                         routing_table_updated = True
                         continue
                 else:
-                    if metric < route_object.metric:
+                    if metric + link.metric < route_object.metric:
                         # New path is shorter so update route to match
-                        route_object.update_route(route_object.destination, next_hop_router_id, metric)
+                        route_object.update_route(route_object.destination, next_hop_router_id, metric + link.metric)
                         print("route updated: route has better metric")
                         routing_table_updated = True
-                        route_object.reset_timers()
             else:
                 self.routing_table.add_route(router_id, next_hop_router_id, metric)
                 print("route added")
@@ -194,7 +191,7 @@ class Daemon:
         
         if routing_table_updated:
             print("Sending update message")
-            self.send_update_packets()
+            self.send_rip_packets()
     
     def get_periodic_update_timer(self):
         """
@@ -214,7 +211,7 @@ class Daemon:
         """
         if self.get_periodic_update_timer() > self.periodic_update_timer_limit:
             print("Sending periodic updates")
-            self.send_update_packets()
+            self.send_rip_packets()
             self.reset_periodic_update_timer()
     
     def check_route_timers(self):
@@ -223,7 +220,7 @@ class Daemon:
             If a route has been changed, triggers an update
         """
         if self.routing_table.check_route_timers():
-            self.send_update_packets()
+            self.send_rip_packets()
 
     def print_routing_table(self):
         """
@@ -233,8 +230,24 @@ class Daemon:
             os.system("cls")
         else: # MacOS or Linux
             os.system("clear")
-        
+        print(f"Router ID: {self.router_id}")
         print(self.routing_table)
+
+    def run_rip_daemon(self):
+        """
+            Loops infinitely doing the required tasks to run the rip protocol
+        """
+        self.send_rip_packets()
+        try:
+            while(1):
+                self.print_routing_table()
+                self.receive_packets()
+                self.check_periodic_update_timer()
+                self.check_route_timers()
+                sleep(1)
+        finally:
+            self.close_sockets()
+        
 
 
 def main(config_filename):
@@ -243,17 +256,7 @@ def main(config_filename):
         :param config_filename: string, config filename (or file path) of the relevant router for getting routing information
     """
     daemon = Daemon(config_filename)
-    print(daemon.router_id)
-    print(daemon.input_ports)
-    print(daemon.output_links)
-    daemon.send_update_packets()
-    while(1):
-        daemon.print_routing_table()
-        daemon.receive_packets()
-        daemon.check_periodic_update_timer()
-        daemon.check_route_timers()
-        sleep(5)
-    daemon.close_sockets()
+    daemon.run_rip_daemon()
 
 
 if __name__=="__main__":
