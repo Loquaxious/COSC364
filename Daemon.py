@@ -170,10 +170,11 @@ class Daemon:
                 if route_object.next_hop == next_hop_router_id:
                     # For triggered updates:
                     # If route metric is infinite and route hasn't been marked for deletion already
-                    if metric == 16 and route_object.garbage_timer == None:
-                        route_object.mark_for_deletion()
-                        if self.verbose_mode: print("route marked for deletion")
-                        routing_table_updated = True
+                    if metric == 16:
+                        if route_object.garbage_timer == None:
+                            route_object.mark_for_deletion()
+                            if self.verbose_mode: print("route marked for deletion")
+                            routing_table_updated = True
                         continue
                     # Updates route (whether its better or worse) if metric is different
                     elif route_object.metric != metric + link.metric:
@@ -188,8 +189,8 @@ class Daemon:
                         route_object.update_route(route_object.destination, next_hop_router_id, metric + link.metric)
                         if self.verbose_mode: print("route updated: route has better metric")
                         routing_table_updated = True
-            elif metric != 16:
-                self.routing_table.add_route(router_id, next_hop_router_id, metric)
+            elif metric < 16:
+                self.routing_table.add_route(router_id, next_hop_router_id, metric + link.metric)
                 if self.verbose_mode: print("route added")
                 routing_table_updated = True
             if self.verbose_mode: print()

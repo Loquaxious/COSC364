@@ -108,7 +108,7 @@ class ConfigParser:
                 try:
                     metric = int(port_data[1])  
                 except Exception as e: 
-                    raise Exception(f"Error: Invalid format on config line {outputs_line}. Metric for port number {port_index} must be an integer.") from None
+                    raise Exception(f"Error: Invalid format on config line {outputs_line}. Metric for port number {port_index} must be an integer.")
 
                 # Check the outbound router id is valid
                 try:

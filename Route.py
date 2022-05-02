@@ -56,7 +56,6 @@ class Route:
         if self.get_garbage_timer() > self.timer_limit:
             return 0
         if self.get_deletion_timer() > self.timer_limit:
-            print(f"Marking route to router {self.destination} for deletion")
             self.mark_for_deletion()
             return 1
         return 2
